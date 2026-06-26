@@ -145,7 +145,16 @@ export default function Explorer({ records }: { records: Record_[] }) {
                 <tr
                   key={r.record_id}
                   onClick={() => setSelected(r)}
-                  className="cursor-pointer border-t border-slate-100 hover:bg-slate-50"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setSelected(r);
+                    }
+                  }}
+                  tabIndex={0}
+                  role="button"
+                  aria-label={`Open mention from ${r.source}`}
+                  className="cursor-pointer border-t border-slate-100 hover:bg-slate-50 focus:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand"
                 >
                   <td className="whitespace-nowrap px-3 py-2 text-xs text-slate-500">
                     {r.date ? r.date.slice(0, 10) : "—"}

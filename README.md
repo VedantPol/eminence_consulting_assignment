@@ -1,80 +1,107 @@
-# Reputation Intelligence — Phase 1 (Data Processing, Classification & Intelligence)
+# Reputation Intelligence Workflow — Eminence Assignment
 
-Turns ~100 raw digital mentions of **ICICI Prudential AMC** (`Dataset.xlsx`) into a
-**cleaned, classified, and enriched dataset** plus executive reputation metrics —
-the deliverable for Part 1 of the assignment.
+A mini reputation-intelligence workflow for a BFSI brand (**ICICI Prudential AMC**):
+it processes, classifies, analyses, and presents ~100 digital mentions — fully
+automated, no manual classification.
 
-## Run it (one command)
+### 🔗 Live dashboard → **https://eminence-consulting.vedant-home-server.in/#overview**
 
-```bash
-./run.sh
+---
+
+## Submission map (everything the brief asks for)
+
+| Requirement | Where | Status |
+|---|---|---|
+| **Source code** | this repo (`pipeline/`, `dashboard/`) | ✅ |
+| **Processed dataset** (cleaned + classified) | [`outputs/cleaned_classified.xlsx`](outputs/cleaned_classified.xlsx) · [`classified.csv`](outputs/classified.csv) | ✅ |
+| **Dashboard** | [`dashboard/`](dashboard/) — live link above | ✅ |
+| **README with setup** | this file | ✅ |
+| **Methodology document** (≤3 pp) | [`docs/METHODOLOGY.md`](docs/METHODOLOGY.md) | ✅ |
+| **Part 1 — Processing, Classification & Intelligence** (60%) | `pipeline/` → `outputs/` | ✅ |
+| **Part 2 — Dashboard / UI** (30%) | `dashboard/` | ✅ |
+| **Part 3 — Data Collection & Scalability** (10%) | [`docs/PART3_DATA_COLLECTION_SCALABILITY.md`](docs/PART3_DATA_COLLECTION_SCALABILITY.md) | ✅ |
+| Exploratory analysis | [`EDA.ipynb`](EDA.ipynb) | ✅ |
+
+---
+
+## Project structure
+```
+.
+├── run.sh                 # one-command entry point for Part 1
+├── run_phase1.py          # pipeline orchestrator
+├── pipeline/              # Part 1 — one file per stage
+│   ├── preprocess.py      #   standardize
+│   ├── dedup.py           #   deduplicate (content + syndication)
+│   ├── relevance.py       #   remove irrelevant
+│   ├── classify.py        #   zero-shot driver/sub-driver + hybrid sentiment
+│   ├── llm_classify.py    #   Claude escalation + silver-gold validation
+│   ├── enrich.py          #   entities, keyphrases, risk
+│   ├── themes_llm.py      #   Claude-named themes
+│   ├── intelligence.py    #   SoV, Reputation Health Score, metrics
+│   ├── config.py          #   taxonomy, gazetteers, weights (the "knowledge")
+│   └── device.py          #   GPU/CPU auto-detect
+├── outputs/               # the processed dataset + insights.json + report
+├── dashboard/             # Part 2 — Next.js dashboard (reads outputs as static JSON)
+├── docs/                  # Methodology + Part 3 write-up
+├── EDA.ipynb              # exploratory data analysis
+└── Dataset.xlsx           # provided input
 ```
 
-`run.sh` activates the environment, installs anything missing, downloads the
-models once, and runs the pipeline end-to-end (~8s on GPU, ~5 min on CPU; ~40s
-with the Claude escalation enabled). Equivalent manual run:
+---
+
+## Part 1 — run the pipeline
 
 ```bash
-pip install -r requirements.txt
-python run_phase1.py
+./run.sh                       # installs deps, downloads models, runs end-to-end
+# or:  pip install -r requirements.txt && python run_phase1.py
 ```
+- **~8 s on GPU / ~5 min on CPU** (offline); **~45 s** with the Claude escalation enabled.
+- **Optional Claude escalation:** put `ANTHROPIC_API_KEY=sk-ant-...` in a `.env` file
+  (git-ignored). With no key the pipeline runs **100 % offline** (local models only).
 
-**Optional — Claude escalation.** Drop an API key in `.env` and the pipeline
-sends *only* its low-confidence classifications to Claude Sonnet 4.6 for a
-nuanced re-read. With no key it runs **100% offline** (local models only).
+**What it does:** `standardize → dedup → relevance filter → classify (FinBERT/social
+sentiment + DeBERTa zero-shot driver/sub-driver) → Claude escalation for low-confidence
+rows → enrich → intelligence`. Every record gets **driver + sub-driver + sentiment**
+(no blanks); every dropped row is kept in an audit sheet.
+
+**Outputs (`outputs/`):** `cleaned_classified.xlsx` (classified data + audit + insight
+sheets), `classified.csv` / `classified.json`, `insights.json` (dashboard data),
+`pipeline_report.md`.
+
+**Headline results:** 100 → 4 dupes → 1 irrelevant → **95 classified** · Reputation
+Health **60.1/100** · Share of Voice **82.4 %** · driver accuracy **86.3 %** /
+sub-driver **83.2 %** (vs a Claude silver-gold reference).
+
+---
+
+## Part 2 — run the dashboard
 
 ```bash
-# .env  (gitignored — never committed)
-ANTHROPIC_API_KEY=sk-ant-...
+cd dashboard
+npm install
+npm run dev                    # http://localhost:3000
 ```
+Three sections per the brief — **Overview** (KPIs, Reputation Health gauge, sentiment /
+driver / sub-parameter distributions, named themes), **Content Explorer** (search +
+filter by driver / sub-driver / sentiment / channel, click a row for the original
+content), and **Insights** (key findings, positive vs negative drivers, risk queue,
+spokesperson sentiment).
 
-## What it does — the assignment's Part 1, end to end
+It reads the pre-computed `outputs/insights.json` + `classified.json` as **static data**
+— no backend. Refresh after re-running Part 1:
+`cp ../outputs/{insights,classified}.json data/`.
 
-| # | Stage | File | What happens |
-|---|-------|------|--------------|
-| 1 | **Standardize** | `pipeline/preprocess.py` | fix messy sentiment casing → {Positive,Neutral,Negative}; build a unified text blob (Title+Opening+Hit Sentence); parse dates; derive channel, source-tier, language, brand-salience |
-| 2 | **Deduplicate** | `pipeline/dedup.py` | exact-content + embedding near-dup + **cross-source headline syndication**; keeps the highest-reach copy and consolidates reach. *Content-based, not URL-based*, so distinct app reviews are preserved |
-| 3 | **Remove irrelevant** | `pipeline/relevance.py` | two-tier filter (brand/person/app-channel rule → semantic finance gate); drops off-topic noise; tiers the rest (headline / body / first_party / peripheral) |
-| 4 | **Classify** | `pipeline/classify.py` | **driver + sub-driver** (DeBERTa zero-shot over the 8-sub-driver framework) and **sentiment** (FinBERT for news, a social model for app/Reddit) |
-| 4b | **LLM escalation** | `pipeline/llm_classify.py` | low-confidence driver/sub-driver rows → **Claude Sonnet 4.6** (forced tool use, full taxonomy); offline fallback if unavailable |
-| 5 | **Enrich** | `pipeline/enrich.py` | entities/competitors, keyphrases, themes, reach-weighted **risk queue** |
-| 6 | **Intelligence** | `pipeline/intelligence.py` | Net Sentiment, **Share of Voice**, composite **Reputation Health Score**, breakdowns, sentiment QA vs the provided labels |
+**Deploy (Vercel):** import the repo → set **Root Directory = `dashboard`** → deploy
+(framework auto-detected; build command `next build`; no env vars needed).
 
-Every record is classified into **driver + sub-driver + sentiment** (no blanks),
-and every dropped row is kept in an audit sheet with the reason.
+---
 
-## Classification framework (3 drivers / 8 sub-drivers)
+## Models used
+FinBERT · Twitter-RoBERTa (sentiment) · DeBERTa-v3 zero-shot (driver/sub-driver) ·
+MiniLM embeddings · **Claude Sonnet 4.6** (hard cases, validation, theme naming).
+See [`docs/METHODOLOGY.md`](docs/METHODOLOGY.md) for the full rationale, assumptions, and limitations.
 
-- **Brand Perception** → Thought Leadership · Product Strategy · Brand Visibility & Marketing
-- **User Experience** → Product & Service Quality · Customer Support & Complaint Resolution · Digital & Omnichannel Experience
-- **Responsible Business Practices** → Regulatory Compliance & Ethical Governance · Social Impact & Community (CSR)
-
-## Outputs (`outputs/`)
-
-- **`cleaned_classified.xlsx`** — the processed dataset. Sheets: `classified` (all
-  records + labels, confidences, themes, entities, risk), `driver_breakdown`,
-  `themes`, `risk_queue`, `removed_duplicates`, `removed_irrelevant` (audit trails).
-- `classified.csv` — flat version of the classified sheet.
-- `insights.json` — all metrics for the Part-2 dashboard.
-- `pipeline_report.md` — human-readable run summary.
-
-## Models (local, run offline after first download)
-
-| Task | Model |
-|------|-------|
-| Sentiment (news) | `ProsusAI/finbert` |
-| Sentiment (app/social) | `cardiffnlp/twitter-roberta-base-sentiment-latest` |
-| Driver / sub-driver | `MoritzLaurer/deberta-v3-base-zeroshot-v2.0` |
-| Hard-case escalation | `claude-sonnet-4-6` (only if API key set) |
-| Emotion | `j-hartmann/emotion-english-distilroberta-base` |
-| Embeddings (dedup/themes) | `sentence-transformers/all-MiniLM-L6-v2` |
-
-## Design notes
-
-- **Sub-driver is always populated** (never blank); uncertainty is carried by a
-  confidence + `low_confidence` flag, and those rows are what escalate to Claude.
-- The provided `Sentiment` labels are treated as a **QA reference** (agreement
-  reported), not ground truth — we re-classify and compare.
-- The Claude escalation corrects only the flagged weakness (driver/sub-driver); it
-  does **not** override sentiment (which is validated against the provided labels).
-- Exploratory analysis is in `EDA.ipynb`.
+> **Bonus (not required by the brief):** [`sentiment-cascade/`](sentiment-cascade/) is a
+> standalone FastAPI cascade-sentiment microservice (local classifier → Claude for hard
+> cases, with PII masking and tests) — included as an example of productionising the
+> classification approach.
