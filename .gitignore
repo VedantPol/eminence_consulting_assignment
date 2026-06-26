@@ -1,0 +1,29 @@
+# ── Secrets — NEVER commit ─────────────────────────────────────────────
+.env
+*.env
+.env.*
+**/.env
+**/.env.*
+
+# ── Node / Next.js (dashboard) ─────────────────────────────────────────
+node_modules/
+**/node_modules/
+.next/
+**/.next/
+out/
+**/out/
+.vercel
+*.tsbuildinfo
+next-env.d.ts
+
+# ── Python ─────────────────────────────────────────────────────────────
+__pycache__/
+**/__pycache__/
+*.pyc
+.pytest_cache/
+**/.pytest_cache/
+.ipynb_checkpoints/
+
+# ── Build artifacts / caches ───────────────────────────────────────────
+*.parquet
+.DS_Store

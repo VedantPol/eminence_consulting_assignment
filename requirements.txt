@@ -1,0 +1,17 @@
+# Phase 1 pipeline dependencies. All models run locally/offline after first download.
+# torch here is a CPU-only build; install it from the CPU wheel index first:
+#   pip install torch --index-url https://download.pytorch.org/whl/cpu
+# then:  pip install -r requirements.txt
+torch>=2.2            # CPU build — see note above (tested on 2.12.1+cpu)
+transformers>=4.40    # tested on 5.12.1
+sentence-transformers>=2.7
+scikit-learn>=1.4
+keybert>=0.8
+yake>=0.4
+rapidfuzz>=3.0
+langdetect>=1.0
+pandas>=2.2
+numpy>=1.26
+openpyxl>=3.1
+pyarrow>=14.0
+matplotlib>=3.8
