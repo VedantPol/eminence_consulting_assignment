@@ -13,7 +13,20 @@ import {
   TemporalArea,
 } from "@/components/charts";
 
-export default function Overview({ insights }: { insights: Insights }) {
+export type Drill = {
+  driver?: string;
+  sub_driver?: string;
+  sentiment?: string;
+  theme?: string;
+};
+
+export default function Overview({
+  insights,
+  onDrill,
+}: {
+  insights: Insights;
+  onDrill: (d: Drill) => void;
+}) {
   const c = insights.counts;
   const rhs = insights.reputation_health_score;
   const sov = insights.share_of_voice;
@@ -92,9 +105,9 @@ export default function Overview({ insights }: { insights: Insights }) {
         </Card>
 
         <Card>
-          <CardHeader title="Sentiment distribution" />
+          <CardHeader title="Sentiment distribution" subtitle="Click a segment to explore" />
           <div className="px-4 pb-4 pt-2">
-            <SentimentDonut dist={sentDist} />
+            <SentimentDonut dist={sentDist} onSelect={(s) => onDrill({ sentiment: s })} />
             <div className="mt-1 flex justify-center gap-4 text-xs">
               {["Positive", "Neutral", "Negative"].map((s) => (
                 <span key={s} className="inline-flex items-center gap-1.5 text-slate-600">
@@ -120,15 +133,18 @@ export default function Overview({ insights }: { insights: Insights }) {
       {/* Row B: driver / sub-driver */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-1">
-          <CardHeader title="Reputation drivers" subtitle="3-driver framework" />
+          <CardHeader title="Reputation drivers" subtitle="3-driver framework · click to explore" />
           <div className="px-3 pb-4 pt-4">
-            <DriverBar rows={insights.driver_breakdown} />
+            <DriverBar rows={insights.driver_breakdown} onSelect={(d) => onDrill({ driver: d })} />
           </div>
         </Card>
         <Card className="lg:col-span-2">
-          <CardHeader title="Sub-parameter distribution" subtitle="8 sub-drivers" />
+          <CardHeader title="Sub-parameter distribution" subtitle="8 sub-drivers · click to explore" />
           <div className="px-3 pb-4 pt-4">
-            <SubDriverBar rows={insights.sub_driver_breakdown} />
+            <SubDriverBar
+              rows={insights.sub_driver_breakdown}
+              onSelect={(s) => onDrill({ sub_driver: s })}
+            />
           </div>
         </Card>
       </div>
@@ -137,10 +153,10 @@ export default function Overview({ insights }: { insights: Insights }) {
       <Card>
         <CardHeader
           title="Top discussion themes"
-          subtitle="Named by Claude Sonnet 4.6 · bar colour = net sentiment"
+          subtitle="Named by Claude Sonnet 4.6 · bar colour = net sentiment · click to explore"
         />
         <div className="px-3 pb-4 pt-4">
-          <ThemesBar themes={insights.themes} />
+          <ThemesBar themes={insights.themes} onSelect={(t) => onDrill({ theme: t })} />
         </div>
       </Card>
     </div>

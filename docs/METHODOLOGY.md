@@ -1,72 +1,95 @@
-# Methodology — Reputation Intelligence Workflow
-**Brand:** ICICI Prudential AMC (BFSI) · **Dataset:** 100 digital mentions · *(≤ 3 pages)*
+# Methodology
 
-A fully automated pipeline turns raw digital mentions into a cleaned, classified,
-and enriched dataset plus executive reputation metrics. No record is classified
-by hand — every label comes from a model.
+**Brand:** ICICI Prudential AMC · **Input:** 100 digital mentions · **Output:** 95 cleaned, classified records + reputation metrics
+
+The pipeline takes the raw spreadsheet and returns a labelled dataset and an executive
+summary, with nothing classified by hand. It runs in six stages:
 
 ```
-Dataset.xlsx → standardize → dedup → relevance filter → classify
-            → LLM escalation → enrich → intelligence → outputs/
+standardize → deduplicate → drop irrelevant → classify → escalate hard cases → enrich → metrics
 ```
 
----
+The funnel is fully reconciled: 100 raw, minus 4 duplicates and 1 off-topic record, leaves 95
+classified. Every removed row is kept in an audit sheet with the reason it was dropped.
 
-## 1. Approach to data cleaning & classification
+## Cleaning and processing
 
-### Cleaning & processing
-- **Standardization** — fix the messy provided sentiment casing (`positive`/`Positive`/`Negative` → `{Positive, Neutral, Negative}`); build a **unified text blob** (Title + Opening Text + Hit Sentence, since no single field is complete); parse dates; derive `channel`, `source_tier`, `language`, and brand-salience tier. HTML-unescape, strip URLs/zero-width characters, collapse whitespace.
-- **Deduplication** — on **normalized content, not URL**. The Play-Store app URL repeats ~15× but each row is a *distinct* review, so URL-dedup would destroy real signal. Three passes: exact content, embedding near-duplicate (MiniLM cosine ≥ 0.95), and **cross-source headline syndication** (same headline across different outlets). The highest-reach copy is kept and the dropped copies' reach is consolidated into it.
-- **Removal of irrelevant records** — two-tier: a rule (brand/person mentioned, or first-party app/review channel) then a semantic finance-relevance gate. Clear off-topic noise (e.g. *"Best MBA Colleges in Kalyan"*) is dropped; borderline generic listicles are kept but tagged `peripheral` so they can be excluded from headline metrics.
-- Every dropped row is preserved in an **audit sheet** with the reason.
+**Standardizing.** The provided `Sentiment` column mixes cases (`positive`, `Positive`, `Negative`),
+so the first step normalises it to three labels. No single text field is complete (titles are missing
+on 19 rows, hit-sentences on 46), so each record gets one combined text field built from the title,
+opening text, and hit sentence. Dates are parsed; channel, source tier, language, and a brand-salience
+tier are derived from the source and URL.
 
-**Funnel:** 100 raw → 4 duplicates → 1 irrelevant → **95 classified** (reconciles to 100).
+**Deduplicating.** The obvious move is to dedupe on URL, and it is wrong here: the Play Store app URL
+appears about fifteen times, but each row is a different review. Deduping on URL would delete real
+feedback. So duplicates are found on content instead, in three passes: identical text, near-identical
+text (MiniLM embedding cosine ≥ 0.95), and the same headline syndicated across different outlets. When
+a duplicate group is collapsed, the highest-reach copy survives and the others' reach is folded into it,
+so share-of-voice isn't understated.
 
-### Classification (driver · sub-driver · sentiment)
-A **cascade** keeps it scalable and accurate:
-1. **Cheap local pass.** A zero-shot NLI classifier (DeBERTa-v3) scores each record against rich natural-language hypotheses for the 8 sub-drivers; the parent **driver is derived from the chosen sub-driver** so the two can never disagree. Sub-driver is always populated; a confidence + `low_confidence` flag carries uncertainty.
-2. **LLM escalation.** The ~24 low-confidence rows escalate to **Claude Sonnet 4.6** (forced tool use → guaranteed structured output, the full taxonomy injected into the system prompt). Offline fallback keeps zero-shot labels if the API is unavailable.
-3. **Sentiment** uses a **channel-aware hybrid** — FinBERT for financial news, a Twitter-RoBERTa model for app-store/Reddit/social text (FinBERT alone misread blunt app complaints as neutral; the hybrid lifted negative recall from 2/10 → 8/10).
+**Dropping irrelevant records.** A rule keeps anything that names the brand or a known executive, or
+comes from a first-party app/review channel. Everything else passes through a semantic relevance check
+against the brand. Clear noise is removed (a "Best MBA Colleges in Kalyan" article slipped into the
+pull); borderline "best mutual funds" listicles are kept but tagged `peripheral` so they can be excluded
+from headline numbers. The filter errs toward keeping, on the principle that a missed mention is worse
+than a low-salience one.
 
-### Validation (the "is it right?" evidence)
-Claude Sonnet 4.6 also labels **all 95 rows as an independent silver-gold reference**. Measured accuracy of the cheap classifier: **driver 86.3 % (macro-F1 0.80)**, **sub-driver 83.2 % (macro-F1 0.83)**. Sentiment agreement with the provided labels is **70.5 %** — and notably, Claude agrees with those labels only **47 %**, showing the provided labels are themselves a noisy reference rather than ground truth.
+## Classification
 
-### Intelligence layer
-Net Sentiment, **Share of Voice** vs a competitor gazetteer, a composite **Reputation Health Score (0–100)**, Claude-named discussion themes, a reach-weighted **risk queue**, spokesperson sentiment, and driver × sentiment breakdowns — all written to `insights.json` for the dashboard.
+Driver and sub-driver use a cascade. A local zero-shot model (DeBERTa-v3) scores each record against
+plain-language descriptions of the eight sub-drivers and picks the best one; the parent driver is read
+off the sub-driver, so the two can never contradict each other. The roughly 24 records the local model
+is unsure about are sent to **Claude Sonnet 4.6**, which sees the full framework and returns a structured
+answer through forced tool use. With no API key the pipeline keeps the local labels and runs entirely
+offline.
 
----
+Sentiment is split by channel. FinBERT handles financial news, where it is strong, while a Twitter-tuned
+model handles app-store and social text, where FinBERT was reading blunt complaints as neutral. That one
+change lifted negative recall on app reviews from 2/10 to 8/10.
 
-## 2. Tools, models & frameworks
-| Area | Choice |
-|------|--------|
-| Language / data | Python, pandas, scikit-learn, NumPy |
-| NLP | HuggingFace `transformers`, `sentence-transformers`, KeyBERT |
-| Sentiment | `ProsusAI/finbert` (news) + `cardiffnlp/twitter-roberta-base-sentiment-latest` (social) |
-| Driver / sub-driver | `MoritzLaurer/deberta-v3-base-zeroshot-v2.0` (zero-shot NLI) |
-| Hard-case + validation + themes | **Claude Sonnet 4.6** (`claude-sonnet-4-6`) via the Anthropic SDK, forced tool use |
-| Embeddings | `sentence-transformers/all-MiniLM-L6-v2` (dedup, relevance, themes) |
-| Dashboard | Next.js 14 + TypeScript + Tailwind + Recharts, deployed on Vercel |
-| Compute | Auto-detects GPU (CUDA) / CPU; runs fully offline if no API key |
+On top of the labels, the pipeline computes net sentiment, share of voice against a competitor list, a
+0–100 Reputation Health Score, named discussion themes, a reach-weighted risk queue, and per-spokesperson
+sentiment.
 
-Runs end-to-end with a single command (`./run.sh`) in ~45 s on a GPU.
+## How I know it works
 
----
+Claude also labels all 95 records independently, which gives a reference to measure the cheap classifier
+against. The local model agrees with it on **86% of drivers (macro-F1 0.80)** and **83% of sub-drivers
+(macro-F1 0.83)**. Sentiment is a separate story: the model matches the provided labels 70% of the time,
+but Claude matches them only 47%, which says more about the provided labels than the model. They are a
+useful sanity check, not ground truth.
 
-## 3. Key assumptions
-- The provided `Sentiment` column is a **QA reference, not ground truth** (it is messy and even a frontier model diverges from it), so sentiment is re-classified and agreement is reported.
-- The dataset contained **100 records** (the brief said "approximately 150").
-- **App-store / review** rows are relevant UX signal even when they don't name the brand.
-- Each record maps to **one most-relevant** driver/sub-driver.
-- Claude is an acceptable **silver-gold** annotator for validation (LLM reference, not human-labelled).
-- Generic "best funds" listicles that came from a brand-monitoring pull may still be brand-relevant, so they are tagged rather than dropped (precision-first).
+## Tools and models
 
----
+| Job | Choice |
+|-----|--------|
+| Data + NLP | Python, pandas, scikit-learn, HuggingFace Transformers, sentence-transformers, KeyBERT |
+| Sentiment | FinBERT (news) + Twitter-RoBERTa (social) |
+| Driver / sub-driver | DeBERTa-v3 zero-shot |
+| Hard cases, validation, theme naming | Claude Sonnet 4.6, via the Anthropic SDK with forced tool use |
+| Embeddings | MiniLM (dedup, relevance, themes) |
+| Dashboard | Next.js, Recharts, Tailwind, on Vercel |
 
-## 4. Limitations
-- **Small corpus (100 rows).** Zero-shot hypotheses were tuned on this data; generalisation to a fresh pull is untested.
-- **No human gold set.** Reported accuracy is against an LLM silver-gold reference, which can share blind spots with the escalation model.
-- **Sentiment 70.5 % agreement** reflects a labelling-philosophy gap (neutral-vs-positive on factual reporting), not pure error — but without a human gold set this can't be fully separated.
-- **Themes** on short, homogeneous text cluster weakly (silhouette ≈ 0.06); this is mitigated by LLM-named themes but those depend on the API.
-- **Relevance filter is deliberately lenient** (keeps low-salience listicles, flagged `peripheral`) to avoid dropping true mentions; a stricter setting would trade recall for precision.
-- **LLM stage needs network + API key**; the pipeline degrades to fully-offline zero-shot otherwise.
-- **Reach** is missing for ~35 % of rows, so reach-weighted metrics treat unknowns conservatively.
+The whole thing runs with one command and finishes in about 45 seconds on a GPU, or works on CPU.
+
+## Assumptions
+
+- The provided sentiment labels are a reference for QA, not the truth. They are noisy enough that a
+  frontier model disagrees with them more than the local model does.
+- The file held 100 records; the brief said roughly 150.
+- App and review text is relevant even when it doesn't name the brand.
+- Each record has one most-relevant driver and sub-driver.
+- Claude is a fair stand-in for a human annotator when measuring accuracy, with the caveat below.
+
+## Limitations
+
+- A hundred records is small. The zero-shot prompts were tuned on this data, so performance on a fresh
+  pull is unproven.
+- Accuracy is measured against an LLM, not a human gold set, so the two can share blind spots. A
+  30-record hand-labelled set would settle this.
+- The 70% sentiment agreement reflects a difference in labelling philosophy (calling factual coverage
+  neutral vs. mildly positive), which a human gold set would resolve.
+- Themes barely cluster on text this short and uniform (silhouette ≈ 0.06); naming them with the LLM
+  fixes the readability but depends on the API.
+- The relevance filter is deliberately lenient, trading some precision for recall.
+- Reach is missing on about a third of rows, so reach-weighted figures treat unknowns conservatively.

@@ -3,7 +3,7 @@
 import * as React from "react";
 import { LayoutDashboard, Search, Lightbulb, ShieldCheck } from "lucide-react";
 import type { Insights, Record_ } from "@/lib/types";
-import Overview from "@/components/Overview";
+import Overview, { type Drill } from "@/components/Overview";
 import Explorer from "@/components/Explorer";
 import InsightsView from "@/components/Insights";
 
@@ -34,6 +34,13 @@ export default function Dashboard({
   const selectTab = (t: Tab) => {
     setTab(t);
     if (typeof window !== "undefined") window.history.replaceState(null, "", `#${t}`);
+  };
+
+  // click a chart segment in Overview → jump to the Explorer with that filter
+  const [explorerInit, setExplorerInit] = React.useState<Drill & { nonce: number }>({ nonce: 0 });
+  const drill = (d: Drill) => {
+    setExplorerInit({ ...d, nonce: Date.now() });
+    selectTab("explorer");
   };
 
   return (
@@ -92,8 +99,8 @@ export default function Dashboard({
 
       {/* Body */}
       <main className="mx-auto max-w-7xl px-5 py-6">
-        {tab === "overview" && <Overview insights={insights} />}
-        {tab === "explorer" && <Explorer records={records} />}
+        {tab === "overview" && <Overview insights={insights} onDrill={drill} />}
+        {tab === "explorer" && <Explorer records={records} init={explorerInit} />}
         {tab === "insights" && <InsightsView insights={insights} />}
       </main>
 

@@ -1,43 +1,81 @@
-# Part 3 — Automated Data Collection & Scalability Approach
-*How I would automate daily collection of mentions from news websites, Reddit, and X/Twitter. (No code; ≤ 2 pages.)*
+# Part 3 — Automating Daily Data Collection
 
-## Architecture at a glance
+How I would collect mentions from news sites, Reddit, and X every day, store them, keep them clean, and
+scale the whole thing. The classification work from Part 1 becomes the processing step; this is the
+plumbing around it.
+
 ```
- Sources                Ingestion (workers)        Queue        Processing             Storage / Serving
- ───────                ───────────────────        ─────        ──────────             ─────────────────
- News (RSS/API/scrape) ─┐                                     ┌─ dedup + quality ─┐
- Reddit (API)          ─┼─► collectors (per source) ─► Kafka ─┼─ classify cascade ─┼─► Postgres + S3 (raw)
- X/Twitter (API)       ─┘     (scheduled, rate-limited)        └─ enrich/metrics  ─┘    + pgvector + warehouse
+ sources        collectors          queue      processing           storage
+ ───────        ──────────          ─────      ──────────           ───────
+ news    ─┐                                   ┌ dedup + quality  ┐
+ reddit  ─┼─► per-source ─► Kafka ─► ─────────┤ classify cascade ├─► Postgres + S3
+ X       ─┘     workers                       └ enrich + metrics ┘     + warehouse
 ```
-The Part-1 pipeline becomes the **"Processing"** block, run continuously on a stream instead of a one-off file.
 
-## 1. Data collection approach
-- **News websites.** Prefer structured feeds: **RSS/Atom** and sitemaps where available; **Google News RSS / GDELT** for broad discovery; a brand-keyword query against a news API (NewsAPI, Bing News) as a supplement. For sites without feeds, scheduled **Scrapy** spiders, escalating to **Playwright** for JavaScript-rendered pages. Each source has a small adapter that maps its payload to a common schema.
-- **Reddit.** The official Reddit API via **PRAW** — search brand keywords across relevant subreddits (r/MutualFundsIndia, r/IndiaInvestments, …) and poll `new` submissions + comments on a schedule.
-- **X/Twitter.** The X API v2 **filtered stream / recent-search** with brand keyword + cashtag rules; given X's cost and access limits, keep a **commercial fallback** (Apify, Brandwatch) behind the same adapter interface.
-- **Orchestration.** A scheduler (**Airflow / cloud scheduler / cron**) fires per-source collectors **daily** (or near-real-time for X). Collectors are stateless workers that emit normalized records to a queue. A shared **brand-match rule** (keyword + entity + semantic gate, reused from Part 1's relevance filter) drops obvious noise at the edge.
-- **Common schema:** `{id, date, source, source_tier, url, title, text, channel, reach?, raw_payload}`.
+## Collecting
 
-## 2. Storage approach
-- **Raw landing zone (S3 / object storage).** Every raw payload is stored immutably and partitioned by `source/date` — this makes the pipeline **replayable** (re-run classification without re-scraping) and is the audit of record.
-- **Operational store (PostgreSQL).** Normalized mentions + their classifications (driver, sub-driver, sentiment, confidence, themes, risk), partitioned by date and upserted by content key. **pgvector** holds the embeddings used for dedup and semantic search.
-- **Analytics (warehouse: BigQuery / Snowflake).** Aggregations feed the dashboard's `insights.json`-equivalent and BI tooling at scale.
-- Classifications are versioned with the model + prompt version so results are reproducible and back-fillable.
+Each source gets a small adapter that pulls its data and maps it to one schema:
+`{id, date, source, source_tier, url, title, text, channel, reach?}`.
 
-## 3. Handling duplicates & data-quality issues
-- **Deduplication (reuse Part 1's logic at stream scale):** URL canonicalization → exact content hash → **embedding near-duplicate** (cosine ≥ 0.95 over a rolling time window via pgvector) → **cross-source syndication** (same headline across outlets). Upsert-by-content-key makes ingestion **idempotent** (safe re-runs).
-- **Quality gates:** JSON-schema validation, language detection, dead-link checks, **spam/bot heuristics** (account age, duplication rate), and the **relevance filter** (brand match + semantic finance gate) before anything is classified. **PII is masked** before any text leaves the box (as in the cascade service).
-- **Drift monitoring:** track classification-confidence distribution and sentiment mix over time; a sudden drop in confidence flags model/data drift for review.
+**News.** Use structured feeds wherever they exist (RSS, Atom, sitemaps), plus Google News RSS and GDELT
+for discovery and a news API such as NewsAPI as a backstop. Sites without feeds get a Scrapy spider,
+upgraded to Playwright when the page needs JavaScript. Prefer feeds and APIs over scraping; they break
+less and stay on the right side of terms of service.
 
-## 4. Scalability considerations
-- **Decouple ingestion from processing** via a queue (Kafka/SQS) so collectors and GPU classification workers scale independently and a slow source never blocks the rest.
-- **Cost-efficient classification cascade** (the core idea from Part 1): the cheap local model handles the confident ~80–90 % of traffic; only low-confidence/ambiguous records hit the LLM. This bounds cost as volume grows. Add **batched LLM calls** and **prompt caching** for the escalated set.
-- **Horizontal scaling** of collectors and classifiers (containers + autoscaling); per-source **rate-limit handling with exponential backoff**; result caching for repeated content.
-- **Incremental processing:** only new/changed records are processed each cycle; dedup runs against a bounded recent window, not the full history.
+**Reddit.** The official API through PRAW, searching brand keywords across the relevant subreddits
+(r/MutualFundsIndia, r/IndiaInvestments, and similar) and polling new posts and comments on a schedule.
 
-## 5. Key limitations & trade-offs
-- **X/Twitter access & cost** is the hardest constraint — the official API is expensive and rate-limited, pushing toward paid third-party providers (cost vs coverage trade-off).
-- **Scraping is fragile and ToS-sensitive** — site changes and anti-bot measures require maintenance; prefer official feeds/APIs and respect robots.txt / legal limits.
-- **LLM cost vs accuracy** — the cascade mitigates this, but a higher escalation rate (more accuracy) costs more; the confidence threshold is the tuning knob.
-- **Reach / impression data** isn't uniformly available across sources, so impact-weighted metrics remain approximate.
-- **Real-time vs batch** — near-real-time ingestion (X stream) raises infra cost and complexity; daily batch is cheaper and sufficient for most reputation reporting. Start batch, add streaming only where latency matters.
+**X / Twitter.** The v2 filtered stream or recent-search endpoint with brand keyword and cashtag rules.
+Because X access is expensive and rate-limited, keep a paid provider (Apify, Brandwatch) behind the same
+adapter so the rest of the system doesn't care which one is live.
+
+A scheduler (Airflow or a cloud equivalent) runs the collectors daily, or continuously for X. The
+brand-match rule from Part 1's relevance filter runs at the edge so obvious noise never enters the queue.
+
+## Storing
+
+Three layers, each with a clear job:
+
+- **Raw landing zone (S3).** Every payload is stored as-is, partitioned by source and date. This is the
+  audit trail and it makes the pipeline replayable: re-run classification without re-scraping.
+- **Operational store (Postgres).** Normalised mentions and their labels, partitioned by date and
+  upserted by content key. A pgvector column holds the embeddings used for dedup and semantic search.
+- **Warehouse (BigQuery or Snowflake).** Aggregates that feed the dashboard and BI tools once volume
+  outgrows Postgres.
+
+Each label is stamped with the model and prompt version, so results are reproducible and a model change
+can be back-filled cleanly.
+
+## Keeping it clean
+
+Deduplication reuses Part 1's logic at stream scale: canonicalise the URL, hash the content for exact
+matches, check embedding similarity against a rolling window for near-duplicates, and match headlines
+across outlets for syndication. Upserting by content key makes re-runs idempotent.
+
+Before anything is classified it passes quality gates: schema validation, language detection, dead-link
+checks, spam and bot heuristics (account age, repost rate), and the brand-relevance filter. PII is masked
+before any text leaves the box. Confidence and sentiment distributions are tracked over time, so model or
+data drift shows up as a measurable shift rather than a surprise.
+
+## Scaling
+
+The one idea that makes this affordable is the classification cascade. The cheap local model handles the
+confident majority; only low-confidence records reach the LLM, which caps cost as volume grows. Batch the
+escalated calls and cache prompts to push it further.
+
+Everything else is standard horizontal scaling. A queue between collection and processing lets the two
+sides scale on their own, so a slow scraper never blocks classification. Collectors and classifiers run
+as autoscaling containers. Each source handles its own rate limits with backoff, and only new or changed
+records are processed each cycle, with dedup running against a bounded window rather than all history.
+
+## Trade-offs
+
+- **X access is the hard constraint.** The official API is costly and limited, which pushes toward paid
+  providers and a coverage-versus-cost decision.
+- **Scraping is brittle and legally sensitive.** Sites change and block bots, so it needs upkeep; lean on
+  official feeds and respect robots.txt and terms of service.
+- **LLM cost versus accuracy.** The cascade keeps it in check, but a higher escalation rate buys accuracy
+  at a price. The confidence threshold is the dial.
+- **Reach data is uneven** across sources, so impact-weighted metrics stay approximate.
+- **Real-time versus batch.** Streaming X raises cost and complexity; daily batch is cheaper and enough
+  for reputation reporting. Start with batch and add streaming only where latency actually matters.

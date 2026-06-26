@@ -1,13 +1,36 @@
 "use client";
 
 import * as React from "react";
-import { Search, X, ExternalLink, RotateCcw } from "lucide-react";
+import { Search, X, ExternalLink, RotateCcw, Download } from "lucide-react";
 import type { Record_ } from "@/lib/types";
+import type { Drill } from "@/components/Overview";
 import { Card, SentimentBadge, Chip } from "@/components/ui";
 import { driverColor, fmtReach } from "@/lib/format";
 
 function uniq(records: Record_[], key: keyof Record_): string[] {
   return Array.from(new Set(records.map((r) => String(r[key] ?? "")).filter(Boolean))).sort();
+}
+
+function exportRecordsCsv(rows: Record_[]) {
+  const cols: (keyof Record_)[] = [
+    "record_id", "date", "source", "channel", "driver", "sub_driver",
+    "sentiment", "theme", "reach", "url", "Title", "text",
+  ];
+  const esc = (v: unknown) => {
+    const s = v == null ? "" : String(v);
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const csv =
+    cols.join(",") +
+    "\n" +
+    rows.map((r) => cols.map((c) => esc(r[c])).join(",")).join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `mentions_${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 function Select({
@@ -40,13 +63,35 @@ function Select({
   );
 }
 
-export default function Explorer({ records }: { records: Record_[] }) {
+export default function Explorer({
+  records,
+  init,
+}: {
+  records: Record_[];
+  init?: Drill & { nonce: number };
+}) {
   const [q, setQ] = React.useState("");
   const [driver, setDriver] = React.useState("");
   const [sub, setSub] = React.useState("");
   const [sentiment, setSentiment] = React.useState("");
   const [channel, setChannel] = React.useState("");
+  const [theme, setTheme] = React.useState("");
+  const [from, setFrom] = React.useState("");
+  const [to, setTo] = React.useState("");
   const [selected, setSelected] = React.useState<Record_ | null>(null);
+
+  // apply a drill-down from an Overview chart (focus on the one clicked filter)
+  React.useEffect(() => {
+    if (!init?.nonce) return;
+    setQ("");
+    setChannel("");
+    setFrom("");
+    setTo("");
+    setDriver(init.driver ?? "");
+    setSub(init.sub_driver ?? "");
+    setSentiment(init.sentiment ?? "");
+    setTheme(init.theme ?? "");
+  }, [init?.nonce]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const drivers = React.useMemo(() => uniq(records, "driver"), [records]);
   const subs = React.useMemo(
@@ -55,6 +100,7 @@ export default function Explorer({ records }: { records: Record_[] }) {
   );
   const sentiments = ["Positive", "Neutral", "Negative"];
   const channels = React.useMemo(() => uniq(records, "channel"), [records]);
+  const themes = React.useMemo(() => uniq(records, "theme"), [records]);
 
   const filtered = React.useMemo(() => {
     const needle = q.trim().toLowerCase();
@@ -63,13 +109,16 @@ export default function Explorer({ records }: { records: Record_[] }) {
       .filter((r) => (sub ? r.sub_driver === sub : true))
       .filter((r) => (sentiment ? r.sentiment === sentiment : true))
       .filter((r) => (channel ? r.channel === channel : true))
+      .filter((r) => (theme ? r.theme === theme : true))
+      .filter((r) => (from && r.date ? r.date.slice(0, 10) >= from : true))
+      .filter((r) => (to && r.date ? r.date.slice(0, 10) <= to : true))
       .filter((r) =>
         needle
           ? `${r.Title ?? ""} ${r.text} ${r.source}`.toLowerCase().includes(needle)
           : true
       )
       .sort((a, b) => (b.reach ?? 0) - (a.reach ?? 0));
-  }, [records, q, driver, sub, sentiment, channel]);
+  }, [records, q, driver, sub, sentiment, channel, theme, from, to]);
 
   const reset = () => {
     setQ("");
@@ -77,7 +126,12 @@ export default function Explorer({ records }: { records: Record_[] }) {
     setSub("");
     setSentiment("");
     setChannel("");
+    setTheme("");
+    setFrom("");
+    setTo("");
   };
+
+  const exportCsv = () => exportRecordsCsv(filtered);
 
   return (
     <div className="space-y-4">
@@ -111,17 +165,55 @@ export default function Explorer({ records }: { records: Record_[] }) {
             <Select label="Channel" value={channel} onChange={setChannel} options={channels} />
           </div>
         </div>
+
+        {/* second row: theme + date range */}
+        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-12">
+          <div className="lg:col-span-5">
+            <Select label="Theme" value={theme} onChange={setTheme} options={themes} />
+          </div>
+          <div className="lg:col-span-3">
+            <label className="flex flex-col gap-1 text-xs">
+              <span className="font-medium text-slate-500">From</span>
+              <input
+                type="date"
+                value={from}
+                onChange={(e) => setFrom(e.target.value)}
+                className="cursor-pointer rounded-md border border-slate-200 bg-white px-2 py-1.5 text-sm text-slate-700 outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+              />
+            </label>
+          </div>
+          <div className="lg:col-span-3">
+            <label className="flex flex-col gap-1 text-xs">
+              <span className="font-medium text-slate-500">To</span>
+              <input
+                type="date"
+                value={to}
+                onChange={(e) => setTo(e.target.value)}
+                className="cursor-pointer rounded-md border border-slate-200 bg-white px-2 py-1.5 text-sm text-slate-700 outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+              />
+            </label>
+          </div>
+        </div>
+
         <div className="mt-3 flex items-center justify-between text-xs text-slate-500">
           <span>
             <span className="font-mono font-semibold text-slate-800">{filtered.length}</span> of{" "}
             {records.length} mentions
           </span>
-          <button
-            onClick={reset}
-            className="inline-flex cursor-pointer items-center gap-1 rounded-md px-2 py-1 text-slate-500 hover:bg-slate-100 hover:text-slate-800"
-          >
-            <RotateCcw className="h-3.5 w-3.5" /> Reset
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={exportCsv}
+              className="inline-flex cursor-pointer items-center gap-1 rounded-md px-2 py-1 text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+            >
+              <Download className="h-3.5 w-3.5" /> Export CSV
+            </button>
+            <button
+              onClick={reset}
+              className="inline-flex cursor-pointer items-center gap-1 rounded-md px-2 py-1 text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+            >
+              <RotateCcw className="h-3.5 w-3.5" /> Reset
+            </button>
+          </div>
         </div>
       </Card>
 

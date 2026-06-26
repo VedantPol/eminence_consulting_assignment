@@ -65,7 +65,13 @@ export function ReputationGauge({ score, band }: { score: number; band: string }
 }
 
 /* --- Sentiment donut ----------------------------------------------------- */
-export function SentimentDonut({ dist }: { dist: Record<string, { count: number; pct: number }> }) {
+export function SentimentDonut({
+  dist,
+  onSelect,
+}: {
+  dist: Record<string, { count: number; pct: number }>;
+  onSelect?: (sentiment: string) => void;
+}) {
   const order = ["Positive", "Neutral", "Negative"];
   const data = order
     .filter((k) => dist[k])
@@ -82,6 +88,8 @@ export function SentimentDonut({ dist }: { dist: Record<string, { count: number;
           paddingAngle={2}
           stroke="none"
           isAnimationActive={false}
+          onClick={(d: any) => onSelect?.(d?.name)}
+          className={onSelect ? "cursor-pointer" : undefined}
         >
           {data.map((d) => (
             <Cell key={d.name} fill={SENTIMENT_COLORS[d.name]} />
@@ -97,11 +105,17 @@ export function SentimentDonut({ dist }: { dist: Record<string, { count: number;
 }
 
 /* --- Driver distribution (horizontal bar, colored by driver) ------------- */
-export function DriverBar({ rows }: { rows: DriverRow[] }) {
+export function DriverBar({ rows, onSelect }: { rows: DriverRow[]; onSelect?: (d: string) => void }) {
   const data = [...rows].sort((a, b) => a.mentions - b.mentions);
   return (
     <ResponsiveContainer width="100%" height={150}>
-      <BarChart data={data} layout="vertical" margin={{ left: 8, right: 28 }}>
+      <BarChart
+        data={data}
+        layout="vertical"
+        margin={{ left: 8, right: 28 }}
+        onClick={(s: any) => s?.activeLabel && onSelect?.(s.activeLabel)}
+        className={onSelect ? "cursor-pointer" : undefined}
+      >
         <CartesianGrid horizontal={false} stroke="#f1f5f9" />
         <XAxis type="number" hide />
         <YAxis
@@ -125,11 +139,17 @@ export function DriverBar({ rows }: { rows: DriverRow[] }) {
 }
 
 /* --- Sub-driver distribution (horizontal bar, colored by parent) --------- */
-export function SubDriverBar({ rows }: { rows: SubDriverRow[] }) {
+export function SubDriverBar({ rows, onSelect }: { rows: SubDriverRow[]; onSelect?: (s: string) => void }) {
   const data = [...rows].sort((a, b) => a.mentions - b.mentions);
   return (
     <ResponsiveContainer width="100%" height={Math.max(180, data.length * 30)}>
-      <BarChart data={data} layout="vertical" margin={{ left: 8, right: 28 }}>
+      <BarChart
+        data={data}
+        layout="vertical"
+        margin={{ left: 8, right: 28 }}
+        onClick={(s: any) => s?.activeLabel && onSelect?.(s.activeLabel)}
+        className={onSelect ? "cursor-pointer" : undefined}
+      >
         <CartesianGrid horizontal={false} stroke="#f1f5f9" />
         <XAxis type="number" hide />
         <YAxis
@@ -157,11 +177,17 @@ export function SubDriverBar({ rows }: { rows: SubDriverRow[] }) {
 }
 
 /* --- Themes (horizontal bar, colored by net sentiment) ------------------- */
-export function ThemesBar({ themes }: { themes: ThemeRow[] }) {
+export function ThemesBar({ themes, onSelect }: { themes: ThemeRow[]; onSelect?: (t: string) => void }) {
   const data = [...themes].sort((a, b) => a.size - b.size);
   return (
     <ResponsiveContainer width="100%" height={Math.max(200, data.length * 32)}>
-      <BarChart data={data} layout="vertical" margin={{ left: 8, right: 30 }}>
+      <BarChart
+        data={data}
+        layout="vertical"
+        margin={{ left: 8, right: 30 }}
+        onClick={(s: any) => s?.activeLabel && onSelect?.(s.activeLabel)}
+        className={onSelect ? "cursor-pointer" : undefined}
+      >
         <CartesianGrid horizontal={false} stroke="#f1f5f9" />
         <XAxis type="number" hide />
         <YAxis
