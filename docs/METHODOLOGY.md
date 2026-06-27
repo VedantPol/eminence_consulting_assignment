@@ -54,9 +54,9 @@ sentiment.
 ## How I know it works
 
 Claude also labels all 95 records independently, which gives a reference to measure the cheap classifier
-against. The local model agrees with it on **86% of drivers (macro-F1 0.80)** and **83% of sub-drivers
+against. The local model agrees with it on **87% of drivers (macro-F1 0.81)** and **84% of sub-drivers
 (macro-F1 0.83)**. Sentiment is a separate story: the model matches the provided labels 70% of the time,
-but Claude matches them only 47%, which says more about the provided labels than the model. They are a
+but Claude matches them only 48%, which says more about the provided labels than the model. They are a
 useful sanity check, not ground truth.
 
 ## Tools and models

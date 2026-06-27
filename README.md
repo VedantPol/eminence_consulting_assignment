@@ -53,7 +53,7 @@ Output lands in `outputs/`: `cleaned_classified.xlsx` (the labelled data plus au
 `classified.csv`/`.json`, `insights.json` for the dashboard, and `pipeline_report.md`.
 
 Results: 100 raw → 4 duplicates → 1 irrelevant → **95 classified**. Reputation Health **60.1/100**,
-share of voice **82.4%**, driver accuracy **86%** and sub-driver **83%** against a Claude reference.
+share of voice **82.4%**, driver accuracy **87%** and sub-driver **84%** against a Claude reference.
 
 ## Part 2 — the dashboard
 

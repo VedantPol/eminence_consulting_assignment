@@ -332,72 +332,72 @@
   },
   "themes": [
     {
-      "theme_id": 1,
-      "label": "Naren & CIO Market Outlook",
-      "description": "Statements, interviews, and commentary from S. Naren, Anand Shah, Nimesh Shah, and other ICICI Pru AMC leaders on market direction, sector opportunities, risk warnings, and investment strategy.",
-      "size": 21,
-      "net_sentiment": 0.238,
-      "dominant_driver": "Brand Perception",
-      "top_sentiment": "Neutral"
-    },
-    {
       "theme_id": 3,
       "label": "Passive & ETF Investing",
-      "description": "Discussion of ICICI Pru's passive fund range\u2014index funds, ETFs, smart-beta, and FoFs\u2014including strategy commentary and performance versus active peers.",
-      "size": 19,
-      "net_sentiment": 0.316,
+      "description": "Discussion of ICICI Prudential's passive fund range \u2014 index funds, ETFs, smart-beta, and FoFs \u2014 and the broader shift toward passive investing as a core portfolio strategy.",
+      "size": 25,
+      "net_sentiment": 0.12,
       "dominant_driver": "User Experience",
-      "top_sentiment": "Neutral"
-    },
-    {
-      "theme_id": 0,
-      "label": "NFO & Fund Launches",
-      "description": "Coverage of new fund offerings and scheme launches by ICICI Prudential AMC, including index funds, thematic funds, iSIF long-short funds, and conglomerate-focused equity schemes.",
-      "size": 16,
-      "net_sentiment": 0.062,
-      "dominant_driver": "Brand Perception",
       "top_sentiment": "Neutral"
     },
     {
       "theme_id": 2,
       "label": "SIP Returns & Long-Term Performance",
-      "description": "Articles benchmarking ICICI Prudential funds on SIP wealth creation, NAV milestones, CAGR rankings, and multi-year return comparisons across equity, hybrid, and debt categories.",
-      "size": 15,
-      "net_sentiment": 0.267,
+      "description": "Analysis and rankings of ICICI Prudential funds' historical SIP and lump-sum returns across large-cap, mid-cap, small-cap, hybrid, and multi-asset categories over multi-year horizons.",
+      "size": 22,
+      "net_sentiment": 0.409,
       "dominant_driver": "User Experience",
       "top_sentiment": "Neutral"
     },
     {
-      "theme_id": 5,
+      "theme_id": 1,
+      "label": "Naren & Leadership Outlook",
+      "description": "Statements, interviews, and market forecasts from ICICI Prudential's senior leaders \u2014 especially CIO S. Naren and CEO Nimesh Shah \u2014 on equities, sectors, risk, and macro themes.",
+      "size": 15,
+      "net_sentiment": 0.267,
+      "dominant_driver": "Brand Perception",
+      "top_sentiment": "Neutral"
+    },
+    {
+      "theme_id": 6,
       "label": "App & Digital Experience",
-      "description": "User reviews, complaints, and feedback on the ICICI Prudential MF mobile app covering login failures, UI issues, missing features, and registration problems.",
+      "description": "User reviews, complaints, and feedback on the ICICI Prudential MF mobile app covering login failures, UI/UX issues, missing features, and registration problems.",
       "size": 13,
       "net_sentiment": -0.462,
       "dominant_driver": "User Experience",
       "top_sentiment": "Negative"
     },
     {
-      "theme_id": 4,
-      "label": "Active Fund & Portfolio Strategy",
-      "description": "Investor-facing guidance on fund selection across multi-asset, hybrid, large-cap, mid-cap, small-cap, and thematic categories, including expert recommendations and portfolio construction advice.",
-      "size": 6,
-      "net_sentiment": 0.5,
-      "dominant_driver": "User Experience",
+      "theme_id": 0,
+      "label": "NFO & Fund Launches",
+      "description": "Coverage of new fund offerings and scheme launches by ICICI Prudential AMC, including iSIF long-short funds, index funds, and thematic/conglomerate equity schemes.",
+      "size": 12,
+      "net_sentiment": 0.083,
+      "dominant_driver": "Brand Perception",
       "top_sentiment": "Neutral"
     },
     {
       "theme_id": 7,
       "label": "CSR, Events & Financial Literacy",
-      "description": "ICICI Pru AMC's participation in investor education events, CSR initiatives, industry conferences, and financial literacy outreach including panel discussions and retreats.",
+      "description": "ICICI Prudential AMC's participation in investor education events, CSR initiatives, industry conferences, and financial literacy outreach activities.",
       "size": 4,
       "net_sentiment": 0.5,
       "dominant_driver": "Brand Perception",
       "top_sentiment": "Neutral"
     },
     {
-      "theme_id": 6,
-      "label": "Regulatory, IPO & Corporate Moves",
-      "description": "SEBI approvals, the ICICI Prudential AMC IPO filing, fund closures or grandfathering decisions, GIFT City office inauguration, and other regulatory or corporate developments.",
+      "theme_id": 4,
+      "label": "Active Asset Allocation & Hybrid Funds",
+      "description": "Debate and guidance on multi-asset, hybrid, and dynamic asset allocation funds, including comparisons of active vs. passive approaches and sector/asset-class rotation views.",
+      "size": 3,
+      "net_sentiment": 0.667,
+      "dominant_driver": "User Experience",
+      "top_sentiment": "Positive"
+    },
+    {
+      "theme_id": 5,
+      "label": "Regulatory & IPO Developments",
+      "description": "SEBI approvals, IPO filings, iSIF regulatory framework, fund restructuring (grandfathering of Passive Multi-Asset FoF), and compliance-related news affecting ICICI Prudential AMC.",
       "size": 1,
       "net_sentiment": 1.0,
       "dominant_driver": "Responsible Business Practices",
@@ -446,22 +446,22 @@
       "net_sentiment": 0.0
     },
     {
-      "theme": "long short",
-      "mentions": 1,
-      "net_sentiment": 0.0
-    },
-    {
-      "theme": "launches offerings",
-      "mentions": 1,
-      "net_sentiment": 0.0
-    },
-    {
       "theme": "segment offering",
       "mentions": 1,
       "net_sentiment": 0.0
     },
     {
+      "theme": "long short",
+      "mentions": 1,
+      "net_sentiment": 0.0
+    },
+    {
       "theme": "fund isif hybrid",
+      "mentions": 1,
+      "net_sentiment": 0.0
+    },
+    {
+      "theme": "launches offerings",
       "mentions": 1,
       "net_sentiment": 0.0
     }
@@ -851,17 +851,17 @@
   "classification_validation": {
     "reference": "Claude Sonnet 4.6 (independent silver-gold annotator, not human)",
     "n": 95,
-    "driver_accuracy_zeroshot_pct": 86.3,
-    "sub_driver_accuracy_zeroshot_pct": 83.2,
-    "driver_macro_f1_zeroshot": 0.803,
-    "sub_driver_macro_f1_zeroshot": 0.827,
+    "driver_accuracy_zeroshot_pct": 87.4,
+    "sub_driver_accuracy_zeroshot_pct": 84.2,
+    "driver_macro_f1_zeroshot": 0.81,
+    "sub_driver_macro_f1_zeroshot": 0.831,
     "n_high_confidence": 71,
-    "driver_accuracy_high_conf_pct": 85.9,
-    "sub_driver_accuracy_high_conf_pct": 85.9,
+    "driver_accuracy_high_conf_pct": 87.3,
+    "sub_driver_accuracy_high_conf_pct": 87.3,
     "sentiment_three_way_agreement_pct": {
       "provided_vs_ours": 70.5,
-      "provided_vs_claude": 47.4,
-      "ours_vs_claude": 42.1
+      "provided_vs_claude": 48.4,
+      "ours_vs_claude": 41.1
     }
   },
   "low_confidence_records": 0
