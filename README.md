@@ -13,8 +13,8 @@ by hand.
 | Source code | `pipeline/` (Part 1), `dashboard/` (Part 2) |
 | Processed dataset | [`outputs/cleaned_classified.xlsx`](outputs/cleaned_classified.xlsx), [`classified.csv`](outputs/classified.csv) |
 | Dashboard | [`dashboard/`](dashboard/) — live link above |
-| Methodology | [PDF](docs/METHODOLOGY.pdf) · [Markdown](docs/METHODOLOGY.md) |
-| Part 3 (collection & scalability) | [PDF](docs/PART3_DATA_COLLECTION_SCALABILITY.pdf) · [Markdown](docs/PART3_DATA_COLLECTION_SCALABILITY.md) |
+| Methodology | [PDF](docs/Methodology_final.pdf) |
+| Part 3 (collection & scalability) | [PDF](docs/PART3_DATA_COLLECTION_SCALABILITY_final.pdf)|
 | Exploratory analysis | [`EDA.ipynb`](EDA.ipynb) |
 
 ## Layout
